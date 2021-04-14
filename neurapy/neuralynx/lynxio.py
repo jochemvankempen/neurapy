@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def read_header(fin):
   """Standard 16 kB header."""
-  return fin.read(16*1024).strip('\00')
+  return fin.read(16*1024).strip(b'\00').decode()
 
 def read_csc(fin, assume_same_fs=True):
   """Read a continuous record file. We return the raw packets but, in addition, if we set assume_same_fs as true we
@@ -234,7 +234,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
     start = f.tell()
     pkt = f.read(4)
     while len(pkt) == 4:
-      if pkt == '\x00\x08\x00\x00': #Magic number 2048 0x0800
+      if pkt == b'\x00\x08\x00\x00': #Magic number 2048 0x0800
         f.seek(-4,1) #Realign
         break
       pkt = f.read(4)
@@ -275,7 +275,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
   fttl = open(fttlname,'wb')
   fchan = [open(fcn,'wb') for fcn in fchanname]
 
-  last_ts = 0L
+  last_ts = 0
   with open(fname,'rb') as f:
     hdr = read_header(f)
     logger.info('File header: {:s}'.format(hdr))
@@ -286,7 +286,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
       all_packets_good = True
       packets_read = these_packets.size
 
-      idx = pylab.find(these_packets['stx'] != 2048)
+      idx = pylab.nonzero(these_packets['stx'] != 2048)[0]
       if idx.size > 0:
         stx_err_cnt += 1
         all_packets_good = False
@@ -294,7 +294,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
         these_packets = these_packets[:max_good_packets]
 
       if these_packets.size > 0:
-        idx = pylab.find(these_packets['pkt_id'] != 1)
+        idx = pylab.nonzero(these_packets['pkt_id'] != 1)[0]
         if idx.size > 0:
           pkt_id_err_cnt += 1
           all_packets_good = False
@@ -302,7 +302,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
           these_packets = these_packets[:max_good_packets]
 
       if these_packets.size > 0:
-        idx = pylab.find(these_packets['pkt_data_size'] != 10 + channels)
+        idx = pylab.nonzero(these_packets['pkt_data_size'] != 10 + channels)[0]
         if idx.size > 0:
           pkt_size_err_cnt += 1
           all_packets_good = False
@@ -313,9 +313,9 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
         #crc computation
         field32 = pylab.vstack([these_packets[k].T for k in nrd_packet.fields.keys()]).astype('I')
         crc = pylab.zeros(these_packets.size,dtype='I')
-        for idx in xrange(field32.shape[0]):
+        for idx in range(field32.shape[0]):
           crc ^= field32[idx,:]
-        idx = pylab.find(crc != 0)
+        idx = pylab.nonzero(crc != 0)[0]
         if idx.size > 0:
           pkt_crc_err_cnt += 1
           all_packets_good = False
@@ -328,7 +328,7 @@ def extract_nrd_ec(fname, ftsname, fttlname, fchanname, channel_list, channels=6
         if last_ts > ts[0]:#Time stamps out of order at buffer boundary
           bad_idx = 0
         else:
-          idx = pylab.find(ts[:-1] > ts[1:])
+          idx = pylab.nonzero(ts[:-1] > ts[1:])[0]
           if idx.size > 0:
             bad_idx = idx[0] + 1
         if bad_idx > -1:
