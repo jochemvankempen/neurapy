@@ -495,3 +495,38 @@ def read_extracted_data(fname, type='addata'):
     return None
 
   return pylab.memmap(fname, dtype=fmt, mode='r')
+
+
+
+def header_to_dict(fname):
+  """Extract info from header
+  
+  Jochem van Kempen, 2021-04-14
+
+  Inputs:
+      fname - name of the file we want to read.
+  Output:
+      dict - dict with information from header
+  """
+  import re
+  
+  # open header
+  with open(fname,'rb') as f:
+    hdr = read_header(f)  
+  
+  # use regexp to find entries
+  p = re.compile('\\n-((\w+) (.*))\\r')
+  m = p.findall(hdr)
+  
+  # loop through entries and store in dict
+  header = {}
+  for i in range(len(m)):
+
+    try:
+      header[m[i][1]]= eval(m[i][2])
+    except:
+      header[m[i][1]]= m[i][2]
+      
+  return header
+
+  
